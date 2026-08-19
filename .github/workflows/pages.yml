@@ -1,0 +1,49 @@
+# Build the notebooks and publish them to GitHub Pages.
+#
+# The site lands at https://giuseppesavare.com/analysis1-code/ -- a project
+# site inheriting the custom domain of the gsavare.github.io user site.  For
+# that inheritance to work this repository must NOT set a custom domain of its
+# own: leaving it empty is deliberate, not an oversight.  Setting it would
+# collide with the personal site, which already holds that domain.
+
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install marimo matplotlib
+      # MARIMO overrides the Makefile default of .venv/bin/marimo: there is no
+      # venv here, marimo is simply on the PATH.
+      - run: make notebooks MARIMO=marimo
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
