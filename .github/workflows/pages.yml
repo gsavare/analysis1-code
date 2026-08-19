@@ -30,7 +30,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install marimo matplotlib
+      # uv is not optional: with inline script metadata present, the
+      # html-wasm export refuses to resolve local imports without it.
+      - run: pip install marimo matplotlib uv
       # MARIMO overrides the Makefile default of .venv/bin/marimo: there is no
       # venv here, marimo is simply on the PATH.
       - run: make notebooks MARIMO=marimo
