@@ -3,3 +3,6 @@ build/
 __pycache__/
 *.pyc
 .DS_Store
+
+# marimo's per-notebook session cache: regenerated, never shared
+__marimo__/
