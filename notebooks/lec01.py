@@ -230,35 +230,65 @@ def _(mo):
 
 @app.cell
 def _(mo, plt, sci, window):
-    # A window narrow enough that consecutive float64 are visibly apart: start
-    # at 2^e and step by the gap there, which is 2^(e-52).  Nothing here is
-    # logarithmic -- these are the actual numbers, on the actual line.
+    # ONE axis, in absolute units, spanning 2^e to a little past 2^(e+1).  Two
+    # panels would defeat the purpose: drawn side by side each to its own
+    # width, the ticks come out equally spaced and the doubling -- the whole
+    # content of the picture -- becomes invisible.  Here both runs of numbers
+    # sit on the same line at their true distances, so the gap on the right is
+    # visibly twice the gap on the left.
     _e = int(window.value)
-    _lo = 2.0 ** _e
-    _gap = 2.0 ** (_e - 52)
-    _n = 9
+    _lo = 2.0 ** _e                      # the power of two we straddle
+    _gap = 2.0 ** (_e - 52)              # spacing just below it, and above
+    _n = 7
 
-    _fig, (_a1, _a2) = plt.subplots(1, 2, figsize=(7.2, 2.2))
-    for _ax, _base, _g in ((_a1, _lo, _gap), (_a2, 2 * _lo, 2 * _gap)):
-        _ax.plot(range(_n), [0] * _n, marker="|", markersize=20,
-                 linestyle="none", color="black")
-        _ax.set_xlim(-0.6, _n - 0.4)
-        _ax.set_ylim(-1, 1)
-        _ax.set_yticks([])
-        _ax.set_xticks([])
-        for _sp in ("left", "right", "top"):
-            _ax.spines[_sp].set_visible(False)
-        _ax.set_xlabel(f"gap here $= {sci(_g, 2)}$", fontsize=9)
-        _ax.set_title(f"just above ${_base:g}$", fontsize=10)
+    # Consecutive machine numbers on each side of 2^(e+1), where the gap
+    # doubles.  Expressed in units of the small gap so the axis is readable:
+    # the left run steps by 1, the right run by 2.
+    _left = [(-_k) for _k in range(_n)][::-1]        # ..., -2, -1, 0
+    _right = [2 * _k for _k in range(1, _n + 1)]     # 2, 4, 6, ...
+
+    _fig, _ax = plt.subplots(figsize=(7.4, 2.4))
+    _ax.plot(_left, [0] * len(_left), marker="|", markersize=22,
+             linestyle="none", color="black")
+    _ax.plot(_right, [0] * len(_right), marker="|", markersize=22,
+             linestyle="none", color="black")
+    # The dashed line stops short of the label below it, which it otherwise
+    # strikes through.
+    _ax.axvline(0, ymin=0.30, ymax=0.95, color="crimson", linewidth=1.1,
+                linestyle="--", alpha=0.8)
+
+    # The two spacings, measured on the picture itself.
+    _ax.annotate("", xy=(-2, 0.45), xytext=(-1, 0.45),
+                 arrowprops=dict(arrowstyle="<->", color="black", lw=1))
+    _ax.text(-1.5, 0.62, f"${sci(_gap, 2)}$", ha="center", fontsize=9)
+    _ax.annotate("", xy=(2, 0.45), xytext=(4, 0.45),
+                 arrowprops=dict(arrowstyle="<->", color="crimson", lw=1))
+    _ax.text(3, 0.62, f"${sci(2 * _gap, 2)}$", ha="center",
+             fontsize=9, color="crimson")
+
+    _ax.text(0, -0.82, f"$2^{{{_e + 1}}} = {2 * _lo:g}$", ha="center",
+             fontsize=10, color="crimson")
+    _ax.set_xlim(-_n - 0.5, 2 * _n + 1.5)
+    _ax.set_ylim(-1.1, 1.1)
+    _ax.set_yticks([])
+    _ax.set_xticks([])
+    for _sp in ("left", "right", "top"):
+        _ax.spines[_sp].set_visible(False)
+    _ax.spines["bottom"].set_position(("data", 0))
     _fig.tight_layout()
 
     mo.vstack([_fig, mo.md(
         f"""
-        Nine consecutive machine numbers on each side, drawn to the same width.
-        Cross $2^{{{_e + 1}}}$ and the gap **doubles** — the ticks on the right
-        are twice as far apart in absolute terms, though the picture looks
-        identical. That is exactly the point: rescale by the size of the
-        number and the spacing is the same everywhere.
+        Consecutive `float64` on both sides of $2^{{{_e + 1}}}$, at their true
+        distances on one line. Below the mark they are ${sci(_gap, 2)}$ apart;
+        above it, ${sci(2 * _gap, 2)}$ — **twice as far**. Crossing a power of
+        two, the machine spends the same 52 digits on an interval twice as
+        long, so the numbers thin out by a factor of 2 and stay that way until
+        the next power.
+
+        Change the window and both numbers scale with it: halve the
+        magnitude and both gaps halve. Only their *ratio* to the number they
+        sit near never moves, and that ratio is $2^{{-52}}$.
         """
     )])
     return
