@@ -218,9 +218,12 @@ def _(mo):
 
 @app.cell
 def _(mo):
+    # Three ADJACENT windows only.  The axis below is drawn to a fixed scale so
+    # that changing the window visibly changes the spacing; offering 1/8 and 8
+    # as well would span a factor of 64 and the ticks would either merge into a
+    # black band or leave the picture entirely.
     window = mo.ui.dropdown(
-        options={"around 1": 0, "around 2": 1, "around 1/2": -1,
-                 "around 8": 3, "around 1/8": -3},
+        options={"around 1/2": -1, "around 1": 0, "around 2": 1},
         value="around 1",
         label="window",
     )
@@ -230,45 +233,48 @@ def _(mo):
 
 @app.cell
 def _(mo, plt, sci, window):
-    # ONE axis, in absolute units, spanning 2^e to a little past 2^(e+1).  Two
-    # panels would defeat the purpose: drawn side by side each to its own
-    # width, the ticks come out equally spaced and the doubling -- the whole
-    # content of the picture -- becomes invisible.  Here both runs of numbers
-    # sit on the same line at their true distances, so the gap on the right is
-    # visibly twice the gap on the left.
+    # Everything is measured in units of eps = 2^-52, the gap at 1, and the
+    # x-limits are FIXED.  That is what makes the control mean something: the
+    # earlier version normalised by the local gap, so every window produced an
+    # identical picture with only the labels changing.  Here the ticks really
+    # move -- twice as dense around 1/2, half as dense around 2.
     _e = int(window.value)
-    _lo = 2.0 ** _e                      # the power of two we straddle
-    _gap = 2.0 ** (_e - 52)              # spacing just below it, and above
-    _n = 7
+    _lo = 2.0 ** _e
+    _gap = 2.0 ** (_e - 52)          # spacing just below 2^(e+1)
+    _eps = 2.0 ** -52                # the fixed yardstick: the gap at 1
 
-    # Consecutive machine numbers on each side of 2^(e+1), where the gap
-    # doubles.  Expressed in units of the small gap so the axis is readable:
-    # the left run steps by 1, the right run by 2.
-    _left = [(-_k) for _k in range(_n)][::-1]        # ..., -2, -1, 0
-    _right = [2 * _k for _k in range(1, _n + 1)]     # 2, 4, 6, ...
+    _g = _gap / _eps                 # this window's gap, in units of eps
+    _span = 8.0                      # the axis always shows [-8 eps, +16 eps]
 
-    _fig, _ax = plt.subplots(figsize=(7.4, 2.4))
-    _ax.plot(_left, [0] * len(_left), marker="|", markersize=22,
+    # Consecutive machine numbers each side of 2^(e+1), placed at their true
+    # distances on the common scale.  The count follows from the span, so a
+    # denser window simply shows more of them.
+    _left = [-_k * _g for _k in range(int(_span / _g) + 1)]
+    _right = [_k * 2 * _g for _k in range(1, int(2 * _span / (2 * _g)) + 1)]
+
+    _fig, _ax = plt.subplots(figsize=(7.4, 2.5))
+    _ax.plot(_left, [0] * len(_left), marker="|", markersize=20,
              linestyle="none", color="black")
-    _ax.plot(_right, [0] * len(_right), marker="|", markersize=22,
+    _ax.plot(_right, [0] * len(_right), marker="|", markersize=20,
              linestyle="none", color="black")
-    # The dashed line stops short of the label below it, which it otherwise
-    # strikes through.
     _ax.axvline(0, ymin=0.30, ymax=0.95, color="crimson", linewidth=1.1,
                 linestyle="--", alpha=0.8)
 
-    # The two spacings, measured on the picture itself.
-    _ax.annotate("", xy=(-2, 0.45), xytext=(-1, 0.45),
+    # One gap measured on each side, on the same scale.  In the densest window
+    # a single gap is too narrow to caption in place, so the arrows stay put
+    # and the labels are pinned to the far ends, where nothing collides.
+    _ax.annotate("", xy=(-2 * _g, 0.42), xytext=(-_g, 0.42),
                  arrowprops=dict(arrowstyle="<->", color="black", lw=1))
-    _ax.text(-1.5, 0.62, f"${sci(_gap, 2)}$", ha="center", fontsize=9)
-    _ax.annotate("", xy=(2, 0.45), xytext=(4, 0.45),
+    _ax.annotate("", xy=(2 * _g, 0.42), xytext=(4 * _g, 0.42),
                  arrowprops=dict(arrowstyle="<->", color="crimson", lw=1))
-    _ax.text(3, 0.62, f"${sci(2 * _gap, 2)}$", ha="center",
-             fontsize=9, color="crimson")
+    _ax.text(-_span - 0.2, 0.72, f"one gap: ${sci(_gap, 2)}$",
+             ha="left", va="center", fontsize=8.5)
+    _ax.text(2 * _span + 0.7, 0.72, f"twice that: ${sci(2 * _gap, 2)}$",
+             ha="right", va="center", fontsize=8.5, color="crimson")
 
     _ax.text(0, -0.82, f"$2^{{{_e + 1}}} = {2 * _lo:g}$", ha="center",
              fontsize=10, color="crimson")
-    _ax.set_xlim(-_n - 0.5, 2 * _n + 1.5)
+    _ax.set_xlim(-_span - 0.5, 2 * _span + 1.0)
     _ax.set_ylim(-1.1, 1.1)
     _ax.set_yticks([])
     _ax.set_xticks([])
@@ -279,16 +285,18 @@ def _(mo, plt, sci, window):
 
     mo.vstack([_fig, mo.md(
         f"""
-        Consecutive `float64` on both sides of $2^{{{_e + 1}}}$, at their true
-        distances on one line. Below the mark they are ${sci(_gap, 2)}$ apart;
-        above it, ${sci(2 * _gap, 2)}$ — **twice as far**. Crossing a power of
-        two, the machine spends the same 52 digits on an interval twice as
-        long, so the numbers thin out by a factor of 2 and stay that way until
-        the next power.
+        Consecutive `float64` either side of $2^{{{_e + 1}}}$, drawn to a scale
+        that does **not** change with the window. Two things move at once:
 
-        Change the window and both numbers scale with it: halve the
-        magnitude and both gaps halve. Only their *ratio* to the number they
-        sit near never moves, and that ratio is $2^{{-52}}$.
+        - across the dashed line the gap **doubles**, ${sci(_gap, 2)}$ to
+          ${sci(2 * _gap, 2)}$ — the same 52 digits now cover an interval
+          twice as long;
+        - and changing the window moves *both*. Around $1/2$ the ticks crowd
+          together, around $2$ they spread out, by the same factor as the
+          numbers themselves.
+
+        Only the ratio of gap to number holds still, at $2^{{-52}}$, which is
+        why one constant describes the precision everywhere.
         """
     )])
     return
