@@ -489,12 +489,16 @@ def _(Decimal, Fraction, getcontext, mo, sci, steps, y_val):
         The digits double in length at every step -- by n = 6 the numerator
         alone is 25 digits -- so printing them in full breaks the table.  The
         length is what matters here, and it is reported instead.
+
+        No raw HTML: <br> and <small> survive marimo's local renderer but are
+        dropped by the exported site, which is where this table is actually
+        read.  Plain markdown says the same thing and travels.
         """
         _n, _d = str(frac.numerator), str(frac.denominator)
         if len(_n) <= keep:
             return f"`{_n}/{_d}`"
-        return (f"`{_n[:4]}…{_n[-3:]}` / `{_d[:4]}…{_d[-3:]}` "
-                f"<br><small>{len(_n)} and {len(_d)} digits</small>")
+        return (f"`{_n[:4]}…{_n[-3:]}`/`{_d[:4]}…{_d[-3:]}` "
+                f"({len(_n)} and {len(_d)} digits)")
 
     _exact = Fraction(_y)
     _rows = []
@@ -507,18 +511,21 @@ def _(Decimal, Fraction, getcontext, mo, sci, steps, y_val):
             f"| {_i + 1} | {_short(_exact)} | ${sci(_err, 3)}$ | `{_f!r}` |"
         )
 
+    # Flat string, zero indentation -- see the note in section 7: rows
+    # interpolated into an indented block break the table after the first one.
+    _table = "\n".join(
+        ["| $n$ | $b_n$ exactly | error | $b_n$ in float64 |",
+         "|---|---|---|---|"] + _rows
+    )
     mo.md(
-        f"""
-        | $n$ | $b_n$ exactly | error | $b_n$ in float64 |
-        |---|---|---|---|
-        {chr(10).join(_rows)}
-
-        The numerator and denominator **double in length at every step** — that
-        growth is the price of staying exact, and it is why the middle of the
-        fraction is elided above rather than printed. The float64 column pays a
-        different price: it stops changing, and the value it settles on is not
-        $\\sqrt{{{_y}}}$ but the nearest machine number to it.
-        """
+        _table
+        + "\n\n"
+        + "The numerator and denominator **double in length at every step** — "
+          "that growth is the price of staying exact, and it is why the middle "
+          "of the fraction is elided above rather than printed. The float64 "
+          "column pays a different price: it stops changing, and the value it "
+          rf"settles on is not $\sqrt{{{_y}}}$ but the nearest machine "
+          "number to it."
     )
     return
 
@@ -568,20 +575,24 @@ def _(Fraction, base, den, digits_of, mo, num, repeating_block):
         else:
             _verdict = "no cycle found within the places computed."
 
+        # The table is assembled at zero indentation and handed to mo.md as
+        # one flat string.  Interpolating rows into an indented triple-quoted
+        # block indents the FIRST row only -- the rest arrive at column 0, the
+        # dedent no longer matches, and the table breaks apart after row one.
         _rows = [f"| {_k} | {_d} | ${_st.numerator}/{_st.denominator}$ |"
                  for _k, _d, _st in digits_of(_x, _b, 12)]
+        _table = "\n".join(
+            [f"$x = {_x.numerator}/{_x.denominator}$ in base ${_b}$ {_verdict}",
+             "",
+             "| $k$ | $d_k$ | state $x_k$ |",
+             "|---|---|---|"] + _rows
+        )
         _out = mo.md(
-            f"""
-            $x = {_x.numerator}/{_x.denominator}$ in base ${_b}$ {_verdict}
-
-            | $k$ | $d_k$ | state $x_k$ |
-            |---|---|---|
-            {chr(10).join(_rows)}
-
-            A rational must do one or the other: the state is always a fraction
-            with the same denominator, so there are finitely many of them and
-            one has to come back.
-            """
+            _table
+            + "\n\n"
+            + "A rational must do one or the other: the state is always a "
+              "fraction with the same denominator, so there are finitely many "
+              "of them and one has to come back."
         )
     _out
     return
@@ -615,20 +626,24 @@ def _(Fraction, mo, rounding_error, scale, sci):
     _bound = 2.0 ** -53
     _ok = "yes" if _e["relative"] <= _bound else "**no**"
 
+    # rf, not f: \varepsilon in a plain f-string is \v + "arepsilon", i.e. a
+    # vertical tab.  It shows up as a broken symbol only in the exported site,
+    # where the code is hidden and the output is all there is.
+    _table = "\n".join([
+        "| | value |",
+        "|---|---|",
+        rf"| $x$ | ${sci(float(_x))}$ |",
+        rf"| absolute error $\lvert\mathrm{{fl}}(x)-x\rvert$ | ${sci(_e['absolute'])}$ |",
+        rf"| relative error | ${sci(_e['relative'])}$ |",
+        rf"| within $\varepsilon/2 = {sci(_bound, 2)}$? | {_ok} |",
+    ])
     mo.md(
-        f"""
-        | | value |
-        |---|---|
-        | $x$ | ${sci(float(_x))}$ |
-        | absolute error $\|\mathrm{{fl}}(x)-x\|$ | ${sci(_e["absolute"])}$ |
-        | relative error | ${sci(_e["relative"])}$ |
-        | within $\varepsilon/2 = {sci(_bound, 2)}$? | {_ok} |
-
-        The absolute error follows the number over twenty-four orders of
-        magnitude; the relative one does not move. That is the whole reason
-        the error worth quoting is the relative one — and the reason a single
-        constant can describe the precision everywhere.
-        """
+        _table
+        + "\n\n"
+        + "The absolute error follows the number over twenty-four orders of "
+          "magnitude; the relative one does not move. That is the whole reason "
+          "the error worth quoting is the relative one — and the reason a "
+          "single constant can describe the precision everywhere."
     )
     return
 
