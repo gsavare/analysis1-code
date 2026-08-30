@@ -16,12 +16,15 @@ Run it directly to reproduce every number quoted in lecture 1:
 """
 
 from decimal import Decimal, getcontext
+from fractions import Fraction
 import math
 import struct
 
 __all__ = [
     "binary", "decimal_digits", "exact_decimal", "float_parts", "binary_float",
-    "pow2_as_pow10", "spacing_at", "bisect", "babylonian",
+    "pow2_as_pow10", "spacing_at", "digits_of", "repeating_block",
+    "rounding_error", "bisect",
+    "babylonian",
 ]
 
 
@@ -107,6 +110,68 @@ def pow2_as_pow10(n):
         "k": k,                       # 2^-n = 10^-k
         "nearest_k": round(k),
         "rule_of_thumb": n // 10,     # 2^-n ~ 10^-3(n/10)
+    }
+
+
+# ---------------------------------------------------------------------------
+# Reading the digits off a number
+# ---------------------------------------------------------------------------
+
+def digits_of(x, base=10, places=12):
+    """The base-`base` digits of x in [0, 1), by the algorithm of the slide.
+
+    Multiply by the base, record the integer part, keep the rest:
+
+        x_0 = x,   d_k = floor(b x_{k-1}),   x_k = b x_{k-1} - d_k.
+
+    Exact rational arithmetic throughout, so the state x_k is the true one and
+    a repeating block really repeats.  Yields (k, d_k, x_k); stops early if the
+    state reaches 0, i.e. if the expansion terminates.
+    """
+    x = Fraction(x)
+    if not 0 <= x < 1:
+        raise ValueError("digits_of expects x in [0, 1)")
+    for k in range(1, places + 1):
+        shifted = base * x
+        d = int(shifted)              # floor, since shifted >= 0
+        x = shifted - d
+        yield k, d, x
+        if x == 0:
+            return
+
+
+def repeating_block(x, base=10, places=60):
+    """The digits of x in the given base, marking where the state repeats.
+
+    Returns (prefix, block): the digits before the cycle and the cycle itself,
+    with block empty when the expansion terminates.  A rational always does one
+    or the other -- there are finitely many possible states.
+    """
+    seen, digs = {}, []
+    x = Fraction(x)
+    for k, d, state in digits_of(x, base, places):
+        digs.append(d)
+        if state == 0:
+            return digs, []
+        if state in seen:
+            start = seen[state]
+            return digs[:start], digs[start:]
+        seen[state] = k
+    return digs, None                 # no cycle found within `places`
+
+
+def rounding_error(x):
+    """How far fl(x) is from x, absolutely and relative to x.
+
+    The relative error is what the slide bounds by eps/2 = 2^-53; the absolute
+    one has no useful bound at all, and that is the point.
+    """
+    fl = float(x)
+    exact = Fraction(x)
+    err = abs(Fraction(fl) - exact)
+    return {
+        "absolute": float(err),
+        "relative": float(err / abs(exact)) if exact else 0.0,
     }
 
 

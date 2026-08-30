@@ -8,8 +8,11 @@ Run this in class: the students can run it too, and it takes no setup.
 import sys, os, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from fractions import Fraction
+
 from analysis import (binary, exact_decimal, float_parts, binary_float,
-                 pow2_as_pow10, spacing_at, babylonian)
+                 pow2_as_pow10, spacing_at, digits_of, repeating_block,
+                 rounding_error, babylonian)
 
 
 def rule(title):
@@ -68,7 +71,7 @@ print(f"\n  addition is not even associative:")
 print(f"  (1 + 1e16) + (-1e16)  ->  {(a + b) + c!r}")
 print(f"  1 + (1e16 + (-1e16))  ->  {a + (b + c)!r}")
 
-rule("5.  Ten binary places buy about three decimal ones")
+rule("5.  Converting between the two bases (float64 digits, and the exercises)")
 print(f"  {'n':>4} {'2^-n':>26} {'= 10^-k, k =':>14} {'rule of thumb':>16}")
 for n in (10, 20, 52, 53):
     r = pow2_as_pow10(n)
@@ -76,6 +79,36 @@ for n in (10, 20, 52, 53):
           f"{'10^-' + str(3 * r['rule_of_thumb']):>16}")
 print(f"\n  because 2^10 = {2**10} = a little more than 10^3.")
 print(f"  So the 52 bits of a float64 are worth about {52 * math.log10(2):.1f} decimal digits.")
+
+rule("5b.  Reading the digits off a number")
+print("  d_k = floor(b x_{k-1}),  x_k = b x_{k-1} - d_k,  in exact fractions.")
+print("  the state x_k decides everything: 0 means it stops, a repeat means a cycle.\n")
+for num, den, base in ((1, 2, 2), (1, 10, 2), (1, 5, 2), (1, 3, 10), (5, 16, 2)):
+    x = Fraction(num, den)
+    prefix, block = repeating_block(x, base)
+    pre = "".join(map(str, prefix))
+    if block:
+        shown = f"0.{pre}[{''.join(map(str, block))}] repeating"
+    else:
+        shown = f"0.{pre} terminates"
+    print(f"    {num}/{den:<3} in base {base:<3} -> {shown}")
+
+print("\n  the first few steps for 1/10 in base 2, state and all:")
+for k, d, state in digits_of(Fraction(1, 10), 2, 9):
+    print(f"    k={k}  d_k={d}   x_k = {state}")
+print("  x_5 = x_1, so the block 0011 repeats from there -- as on the slide.")
+
+rule("5c.  eps is a RELATIVE bound: |fl(x) - x| / |x| <= eps/2")
+print(f"  eps/2 = 2^-53 = {2.0**-53:.4e}\n")
+print(f"    {'x':>14}   {'absolute error':>16}   {'relative error':>16}   ok?")
+for num, den in ((1, 10), (1, 3), (2, 3), (10**6, 3), (1, 10**6 * 3)):
+    x = Fraction(num, den)
+    e = rounding_error(x)
+    ok = e["relative"] <= 2.0**-53
+    print(f"    {float(x):>14.4e}   {e['absolute']:>16.4e}   "
+          f"{e['relative']:>16.4e}   {ok}")
+print("\n  the absolute error moves by twelve orders of magnitude; the relative")
+print("  one never crosses eps/2.  That is why the slide bounds the relative one.")
 
 rule("6.  The Babylonian iteration walks into the hole")
 print("  b -> (b + 2/b)/2, started at b0 = 2, in exact fractions:")
