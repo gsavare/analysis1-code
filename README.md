@@ -35,6 +35,11 @@ is a bug.
 | `lec02_experiments.py` | trapping a number between shrinking rational intervals: digit by digit, by bisection, and by Newton — three algorithms, one real number |
 | `lec03_experiments.py` | the separation theorem by bisection, checked rather than asserted: the bisection that *defines* √2 and the one that *proves* completeness produce identical intervals at every step |
 
+The notebooks under `notebooks/` are the pages of the site: `lec01` (what a
+float holds, the spacing, the Babylonian iteration), `lec02` (three algorithms
+trapping one real number), `lec04` (recursions run step by step, the tolerance
+game, the threshold game).
+
 ## Editing the notebooks
 
 The notebooks are plain `.py` files — no embedded JSON, no stored output — so

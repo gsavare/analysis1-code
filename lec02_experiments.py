@@ -95,3 +95,23 @@ for n in range(1, 5):
     print(f"    from 0.4999...  I_{n} = [{t}, {t + F(1,10**n)}]")
 print("\n  both shrink onto 1/2, and their intervals always meet:")
 print("  same real number, two expansions.  This is the only way uniqueness fails.")
+
+rule("7.  Why not decimal expansions alone?  The carry that never settles")
+print("  fix k, however large.  Two additions whose first k columns are")
+print("  identical -- each pair of digits summing to 9, so nothing carries.")
+print("  they differ only at place k+1, after the bar, where the second carries.\n")
+for k in (1, 3, 6, 12):
+    x_no = F("0." + "4" * k + "4")      # column k+1 reads 4+5 = 9
+    x_yes = F("0." + "4" * k + "5")     # column k+1 reads 5+5 = 10, carries
+    y = F("0." + "5" * k + "5")
+    lead_no = int(x_no + y)
+    lead_yes = int(x_yes + y)
+    shared = "4" * k
+    print(f"    k={k:2d}  0.{shared}|4... + 0.{'5'*k}|5... = "
+          f"{float(x_no+y):.{k+2}f}   leading digit {lead_no}")
+    print(f"          0.{shared}|5... + 0.{'5'*k}|5... = "
+          f"{float(x_yes+y):.{k+2}f}   leading digit {lead_yes}")
+print("\n  the k digits examined are the same in both rows, yet the digit")
+print("  before the decimal point differs: one carry travels back through")
+print("  the whole block of 9s.  computing ONE digit of the sum can require")
+print("  arbitrarily many digits of the addends -- addition is not digitwise.")
